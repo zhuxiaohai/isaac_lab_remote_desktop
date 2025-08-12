@@ -1,17 +1,17 @@
 services:
-  dev_webrtc_build:
-    container_name: dev-webrtc-build
-    image: dev-webrtc-build:4.5
+  dev_webrtc_build_5_0:
+    container_name: dev-webrtc-build-5.0
+    image: dev-webrtc-build:5.0
     build:
       context: ../../
-      dockerfile: dockerfiles/dev_webrtc.dockerfile
+      dockerfile: dockerfiles/dev_webrtc_5.0.dockerfile
       args:
         - FROM_IMAGE=ghcr.io/selkies-project/nvidia-egl-desktop:latest
     deploy:
       replicas: 0
   
-  coturn:
-    container_name: coturn
+  coturn_5_0:
+    container_name: coturn-5.0
     image: coturn/coturn
     ports:
       - "3478:3478/udp"
@@ -36,11 +36,11 @@ services:
     networks:
       - selkies-net
   
-  dev_webrtc0:
-    container_name: dev-webrtc0
-    image: dev-webrtc-build:4.5
+  dev_webrtc0_5_0:
+    container_name: dev-webrtc0-5.0
+    image: dev-webrtc-build:5.0
     depends_on:
-      - coturn
+      - coturn_5_0
     deploy:
       resources:
         reservations:
@@ -78,7 +78,7 @@ services:
       SELKIES_ENABLE_RESIZE: "false"
       
       # TURN服务器配置
-      SELKIES_TURN_HOST: ${COTURN_HOST:-coturn}
+      SELKIES_TURN_HOST: ${COTURN_HOST:-coturn-5.0}
       SELKIES_TURN_PORT: 3478
       SELKIES_TURN_SHARED_SECRET: ${COTURN_AUTH_SECRET:-myselkiesturnpassword}
       SELKIES_TURN_PROTOCOL: udp
