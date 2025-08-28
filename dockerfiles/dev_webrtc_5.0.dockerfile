@@ -139,9 +139,48 @@ RUN cd /home/${USERNAME}/IsaacLab && \
     ./isaaclab.sh --install && \
     echo "=== Isaac Lab installation completed ==="
 
-# Switch back to root for system configuration
+########################################################################################################################
+# SSH Setup
+########################################################################################################################
+
 USER root
 
+# Install SSH server
+RUN apt update && \
+    apt install -y openssh-server
+
+# Configure SSH server
+RUN echo 'X11Forwarding yes' >> /etc/ssh/sshd_config && \
+    echo 'X11UseLocalhost no' >> /etc/ssh/sshd_config && \
+    sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
+    sed -i 's/#Port 22/Port 2220/' /etc/ssh/sshd_config
+
+# Add SSHD entrypoint script
+COPY ${RESOURCES_DIR}/sshd_entrypoint.sh /usr/local/bin/sshd_entrypoint.sh
+
+RUN chown ${USERNAME}:${USERNAME} /usr/local/bin/sshd_entrypoint.sh && \
+    chmod +x /usr/local/bin/sshd_entrypoint.sh && \
+    mkdir -p /run/sshd && \
+    echo "" >> /etc/supervisord.conf && \
+    echo "# sshd entrypoint script" >> /etc/supervisord.conf && \
+    echo "[program:sshd]" >> /etc/supervisord.conf && \
+    echo "user=${USERNAME}" >> /etc/supervisord.conf && \
+    echo "command=/usr/local/bin/sshd_entrypoint.sh" >> /etc/supervisord.conf && \
+    echo "autostart=true" >> /etc/supervisord.conf && \
+    echo "autorestart=true" >> /etc/supervisord.conf && \
+    echo "startretries=3" >> /etc/supervisord.conf && \
+    echo "stderr_logfile=/tmp/sshd.err.log" >> /etc/supervisord.conf && \
+    echo "stdout_logfile=/tmp/sshd.out.log" >> /etc/supervisord.conf && \
+    echo "" >> /etc/supervisord.conf
+EXPOSE 2220
+
+########################################################################################################################
+# Cleanup
+########################################################################################################################
+
+# Switch back to root for system configuration
+USER root
 
 # Clean up cache but preserve Isaac Sim cache
 RUN apt autoclean && apt autoremove -y && \
@@ -149,11 +188,8 @@ RUN apt autoclean && apt autoremove -y && \
     # Keep Isaac Sim cache directory, remove everything else in /tmp
     find /tmp -mindepth 1 -maxdepth 1 ! -name 'isaac_cache' -exec rm -rf {} + 2>/dev/null || true
 
-
 # Pitch to avoid removing all content in ~/.cache
 RUN sed -i "s|sudo rm -rf /tmp/.X\* ~/.cache|sudo rm -rf /tmp/.X* \&\& sudo find ~/.cache -mindepth 1 -maxdepth 1 ! -name 'pip' ! -name 'ov' ! -name 'uv' ! -name 'packman' -exec rm -rf {} +|g" /etc/entrypoint.sh
-
-
 
 # Restore User
 USER ${USERNAME}
