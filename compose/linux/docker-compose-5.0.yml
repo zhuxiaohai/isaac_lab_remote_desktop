@@ -6,13 +6,19 @@ services:
       context: ../../
       dockerfile: dockerfiles/dev_webrtc_5.0.dockerfile
       args:
-        - FROM_IMAGE=ghcr.io/selkies-project/nvidia-egl-desktop:latest
+        - FROM_IMAGE=ghcr.io/selkies-project/nvidia-egl-desktop:24.04-20250828125139
     deploy:
       replicas: 0
   
   coturn_5_0:
     container_name: coturn-5.0
     image: coturn/coturn
+    # dns:
+    #   - 100.90.90.100
+    #   - 100.90.90.90
+    #   - 114.114.114.114
+    # dns_search:
+    #   - .
     ports:
       - "3478:3478/udp"
       - "3478:3478/tcp"
@@ -48,60 +54,92 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    privileged: true
     ipc: host
-    shm_size: 4gb  # Isaac Sim 需要更多共享内存
+    pid: host
     tmpfs:
-      - /dev/shm:rw,size=4g
-      - /tmp:rw,size=2g
-    volumes:
-      - /opt/selkies-certs/selkies-cert.pem:/etc/ssl/certs/selkies-cert.pem
-      - /opt/selkies-certs/selkies-key.pem:/etc/ssl/certs/selkies-key.pem
+      /dev/shm:rw
     environment:
-      # 时区和显示设置
       TZ: Asia/Shanghai
-      DISPLAY_SIZEW: 1920
-      DISPLAY_SIZEH: 1080
-      DISPLAY_REFRESH: 60
-      DISPLAY_DPI: 96
-      DISPLAY_CDEPTH: 24
-      
-      # 密码和认证设置
+      SIZEW: 1920
+      SIZEH: 1080
+      REFRESH: 60
+      DPI: 96
+      CDEPTH: 24
       PASSWD: ${WEBRTC_PASSWORD:-password}
-      SELKIES_BASIC_AUTH_PASSWORD: ${WEBRTC_PASSWORD:-password}
-      SELKIES_ENABLE_BASIC_AUTH: "true"
+      WEBRTC_ENCODER: x264enc
+      BASIC_AUTH_PASSWORD: ${WEBRTC_PASSWORD:-password}
+      TURN_HOST: ${COTURN_HOST}
+      TURN_PORT: 3478
+      TURN_SHARED_SECRET: ${COTURN_AUTH_SECRET}
+      TURN_PROTOCOL: tcp
+    # dns:
+    #   - 100.90.90.100
+    #   - 100.90.90.90
+    #   - 114.114.114.114
+    # dns_search:
+    #   - .
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    # ipc: host
+    # shm_size: 4gb  # Isaac Sim 需要更多共享内存
+    # tmpfs:
+    #   - /dev/shm:rw,size=4g
+    #   - /tmp:rw,size=2g
+    # volumes:
+    #   - /opt/selkies-certs/selkies-cert.pem:/etc/ssl/certs/selkies-cert.pem
+    #   - /opt/selkies-certs/selkies-key.pem:/etc/ssl/certs/selkies-key.pem
+    # environment:
+    #   # 时区和显示设置
+    #   TZ: Asia/Shanghai
+    #   DISPLAY_SIZEW: 1920
+    #   DISPLAY_SIZEH: 1080
+    #   DISPLAY_REFRESH: 60
+    #   DISPLAY_DPI: 96
+    #   DISPLAY_CDEPTH: 24
       
-      # Selkies编码器设置 - 针对 Isaac Sim 优化
-      SELKIES_ENCODER: nvh264enc
-      SELKIES_VIDEO_BITRATE: 10000  # 增加比特率以获得更好的图像质量
-      SELKIES_FRAMERATE: 60
-      SELKIES_AUDIO_BITRATE: 128000
-      SELKIES_ENABLE_RESIZE: "false"
+    #   # 密码和认证设置
+    #   PASSWD: ${WEBRTC_PASSWORD:-password}
+    #   SELKIES_BASIC_AUTH_PASSWORD: ${WEBRTC_PASSWORD:-password}
+    #   SELKIES_ENABLE_BASIC_AUTH: "true"
       
-      # TURN服务器配置
-      SELKIES_TURN_HOST: ${COTURN_HOST:-coturn-5.0}
-      SELKIES_TURN_PORT: 3478
-      SELKIES_TURN_SHARED_SECRET: ${COTURN_AUTH_SECRET:-myselkiesturnpassword}
-      SELKIES_TURN_PROTOCOL: udp
-      SELKIES_TURN_TLS: "false"
+    #   # Selkies编码器设置 - 针对 Isaac Sim 优化
+    #   SELKIES_ENCODER: x264enc
+    #   SELKIES_VIDEO_BITRATE: 10000  # 增加比特率以获得更好的图像质量
+    #   SELKIES_FRAMERATE: 60
+    #   SELKIES_AUDIO_BITRATE: 128000
+    #   SELKIES_ENABLE_RESIZE: "false"
       
-      # STUN服务器配置
-      SELKIES_STUN_HOST: stun.l.google.com
-      SELKIES_STUN_PORT: 19302
+    #   # TURN服务器配置
+    #   SELKIES_TURN_HOST: ${COTURN_HOST:-coturn-5.0}
+    #   SELKIES_TURN_PORT: 3478
+    #   SELKIES_TURN_SHARED_SECRET: ${COTURN_AUTH_SECRET:-myselkiesturnpassword}
+    #   SELKIES_TURN_PROTOCOL: udp
+    #   SELKIES_TURN_TLS: "false"
       
-      # SSL/HTTPS配置
-      SELKIES_ENABLE_HTTPS: "true"
-      SELKIES_HTTPS_CERT: /etc/ssl/certs/selkies-cert.pem
-      SELKIES_HTTPS_KEY: /etc/ssl/certs/selkies-key.pem
+    #   # STUN服务器配置
+    #   SELKIES_STUN_HOST: stun.l.google.com
+    #   SELKIES_STUN_PORT: 19302
       
-      # 网络配置
-      NGINX_PORT: 8080
-      SELKIES_PORT: 8081
-      SELKIES_METRICS_HTTP_PORT: 9081
+    #   # SSL/HTTPS配置
+    #   SELKIES_ENABLE_HTTPS: "false"
+    #   # SELKIES_HTTPS_CERT: /etc/ssl/certs/selkies-cert.pem
+    #   # SELKIES_HTTPS_KEY: /etc/ssl/certs/selkies-key.pem
       
-      # NVIDIA配置 - Isaac Sim 优化
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITIES: all
-      __GL_SYNC_TO_VBLANK: 0
+    #   # 网络配置
+    #   NGINX_PORT: 8080
+    #   SELKIES_PORT: 8081
+    #   SELKIES_METRICS_HTTP_PORT: 9081
+      
+    #   # NVIDIA配置 - Isaac Sim 优化
+    #   # NVIDIA_VISIBLE_DEVICES: all
+    #   # NVIDIA_DRIVER_CAPABILITIES: all
+    #   __GL_SYNC_TO_VBLANK: 0
       
     ports:
       - "8080:8080"
